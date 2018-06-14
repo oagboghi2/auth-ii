@@ -7,6 +7,8 @@ module.exports = function(server) {
     res.send({ api: 'up and running' });
   });
 
+  
+
   server.use('/api/users', userRoutes);
   server.use('/api/auth', authRoutes);
 };

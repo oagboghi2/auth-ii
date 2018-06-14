@@ -1,62 +1,73 @@
 const router = require('express').Router();
 const jwt = require('jsonwebtoken');
+const secret = 'Secret is yours';
+
 
 const User = require('./User');
 
-function generateToken(user){
+function generateToken(user) {
+  console.log("testing helper function")
   const options = {
     expiresIn: '1h',
   }
   //sign the token
-const secret = 'Secret is yours';
-const payload = { name: user.username, }
-return jwt.sign(payload, secret, options)
+  const secret = 'Secret is yours';
+  const payload = { name: user.username, }
+  return jwt.sign(payload, secret, options);
 }
 
-router.get('/api', (req, res) => {
-  User.find()
-    .select('-password')
-    .then(users => {
-      res.json(users);
-    })
-    .catch(err => {
-      res.status(500).json(err);
+function restricted(res,req,next) {
+  const token = req.headers.authorization;
+  if(token) {
+    jwt.verify(token, secret, (err, decodedToken) => {
+      if (err) {
+        res.status(401).json({ message: "Does not pass verification" })
+      }
+    next();
     });
-});
+  } else {
+    res.status(401).json({ message: "Does not pass token"})
+  }
+}
 
 router
-  .post('/api/signup', (req, res) => {
-    User.create(req.body)
-      .then(user => {
-        const token = generateToken(user)
-
-        res.status(201).json({ username: user.username, token })
+  .get('/list', (req, res) => {
+    User.find()
+      .select('-password -race')
+      .then(users => {
+        res.json(users);
       })
       .catch(err => {
-        res.status(500).json(err)
-      })
-  })
+        res.status(500).json(err);
+      });
+  });
 
 router
-  .post('/api/signin', (req, res)=>{
+  .post('/signin', (req, res)=>{
     const { username, password } = req.body;
-
-    User.findOne({ username, password})
+    console.log("req.body : ", req.body);
+    console.log(typeof password);
+    User.findOne({ username })
     .then(user => {
+      console.log("user : ", user)
+
       if(user){
         user
           .validatePassword(password)
-          .then(passwordsMatch => {
-            if(passwordsMatch){
-              //generate the token
+          .then(Match => {
+            //console.log("Match : ", Match)
+            if(Match){
               const token = generateToken(user);
               //send token back to the client
-              res.status(200).json({ message: `welcome ${username}!`, token });
+              console.log("Match : ", Match)
+              res.status(200).json({ message: `${username}!`, token });
             } else {
-              res.status(401).json({ errorMessage: 'invalid credentials'});
+              console.log(Match)
+              res.status(401).json({ errorMessage: 'Passwords fail to match.invalid credentials'});
             }
           })
           .catch(err => {
+            console.log(err);
             res.send('error comparing passwords');
           }); 
       } else {
@@ -68,15 +79,6 @@ router
     });
   });
 
-router
-  .post('/api/signup', (req, res)=>{
-    User.create(req.body)
-      .then(user => {
-        const token = generateToken(user);
 
-        res.status(201).json({ username: user.username, token });
-      })
-      .catch(er => res.status(500).json(err));
-  })
 
 module.exports = router;
